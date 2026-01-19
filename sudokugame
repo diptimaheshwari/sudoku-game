@@ -1,0 +1,251 @@
+import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.border.Border;
+import java.awt.*;
+
+public class SudokuGame extends JFrame {
+
+    private CardLayout cardLayout = new CardLayout();
+    private JPanel mainPanel = new JPanel(cardLayout);
+
+    private JTextField[][] cells = new JTextField[9][9];
+    private int[][] board = new int[9][9];
+    private boolean updating = false;
+
+    private JTextField nameField;
+    private JLabel greetingLabel;
+
+    private final int[][] MEDIUM_PUZZLE = {
+        {0,0,0,2,6,0,7,0,1},
+        {6,8,0,0,7,0,0,9,0},
+        {1,9,0,0,0,4,5,0,0},
+
+        {8,2,0,1,0,0,0,4,0},
+        {0,0,4,6,0,2,9,0,0},
+        {0,5,0,0,0,3,0,2,8},
+
+        {0,0,9,3,0,0,0,7,4},
+        {0,4,0,0,5,0,0,3,6},
+        {7,0,3,0,1,8,0,0,0}
+    };
+
+    public SudokuGame() {
+        setTitle("Sudoku Game");
+        setSize(560, 620);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        mainPanel.add(createEntryPage(), "ENTRY");
+        mainPanel.add(createGamePage(), "GAME");
+
+        add(mainPanel);
+        cardLayout.show(mainPanel, "ENTRY");
+        setVisible(true);
+    }
+
+    // ================= ENTRY PAGE =================
+    private JPanel createEntryPage() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(245, 245, 245));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel welcome = new JLabel("WELCOME TO SUDOKU");
+        welcome.setFont(new Font("Arial", Font.BOLD, 36));
+        welcome.setHorizontalAlignment(JLabel.CENTER);
+
+        JLabel subtitle = new JLabel("Challenge your logic and concentration!");
+        subtitle.setFont(new Font("Arial", Font.ITALIC, 18));
+        subtitle.setHorizontalAlignment(JLabel.CENTER);
+
+        JLabel nameLabel = new JLabel("Enter Your Name:");
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        nameLabel.setHorizontalAlignment(JLabel.CENTER);
+
+        nameField = new JTextField();
+        nameField.setFont(new Font("Arial", Font.PLAIN, 15));
+        nameField.setHorizontalAlignment(JTextField.CENTER);
+
+        JButton playBtn = new JButton("PLAY GAME");
+        playBtn.setFont(new Font("Arial", Font.BOLD, 18));
+
+        playBtn.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            if (name.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "Please enter your name to continue");
+                return;
+            }
+            greetingLabel.setText("Player: " + name);
+            loadPuzzle();
+            cardLayout.show(mainPanel, "GAME");
+        });
+
+        gbc.gridy = 0; gbc.insets = new Insets(20,20,10,20);
+        panel.add(welcome, gbc);
+        gbc.gridy = 1; gbc.insets = new Insets(0,20,20,20);
+        panel.add(subtitle, gbc);
+        gbc.gridy = 2; gbc.insets = new Insets(0,20,5,20);
+        panel.add(nameLabel, gbc);
+        gbc.gridy = 3; gbc.insets = new Insets(0,100,20,100);
+        panel.add(nameField, gbc);
+        gbc.gridy = 4; gbc.insets = new Insets(10,150,10,150);
+        panel.add(playBtn, gbc);
+
+        return panel;
+    }
+
+    // ================= GAME PAGE =================
+    private JPanel createGamePage() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        greetingLabel = new JLabel("Player:");
+        greetingLabel.setHorizontalAlignment(JLabel.CENTER);
+        greetingLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        panel.add(greetingLabel, BorderLayout.NORTH);
+
+        JPanel gridPanel = new JPanel(new GridLayout(9,9));
+        Font font = new Font("Arial", Font.BOLD, 20);
+
+        for (int r = 0; r < 9; r++) {
+            for (int c = 0; c < 9; c++) {
+                JTextField cell = new JTextField();
+                cell.setHorizontalAlignment(JTextField.CENTER);
+                cell.setFont(font);
+
+                int top = (r % 3 == 0) ? 3 : 1;
+                int left = (c % 3 == 0) ? 3 : 1;
+                int bottom = (r == 8) ? 3 : 1;
+                int right = (c == 8) ? 3 : 1;
+
+                Border border = BorderFactory.createMatteBorder(
+                        top, left, bottom, right, Color.BLACK);
+                cell.setBorder(border);
+
+                final int row = r;
+                final int col = c;
+
+                cell.getDocument().addDocumentListener(new DocumentListener() {
+                    public void insertUpdate(DocumentEvent e) { validateCell(row, col); }
+                    public void removeUpdate(DocumentEvent e) { validateCell(row, col); }
+                    public void changedUpdate(DocumentEvent e) {}
+                });
+
+                cells[r][c] = cell;
+                gridPanel.add(cell);
+            }
+        }
+
+        JButton solveBtn = new JButton("Solve");
+        solveBtn.addActionListener(e -> solveSudoku());
+
+        JButton clearBtn = new JButton("Clear");
+        clearBtn.addActionListener(e -> loadPuzzle());
+
+        JPanel btnPanel = new JPanel();
+        btnPanel.add(solveBtn);
+        btnPanel.add(clearBtn);
+
+        panel.add(gridPanel, BorderLayout.CENTER);
+        panel.add(btnPanel, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    // ================= LOGIC =================
+    private void loadPuzzle() {
+        updating = true;
+        for (int i = 0; i < 9; i++)
+            for (int j = 0; j < 9; j++) {
+                board[i][j] = MEDIUM_PUZZLE[i][j];
+                if (board[i][j] != 0) {
+                    cells[i][j].setText(String.valueOf(board[i][j]));
+                    cells[i][j].setEditable(false);
+                    cells[i][j].setBackground(new Color(220,220,220));
+                } else {
+                    cells[i][j].setText("");
+                    cells[i][j].setEditable(true);
+                    cells[i][j].setBackground(Color.WHITE);
+                }
+            }
+        updating = false;
+    }
+
+    private void validateCell(int r, int c) {
+        if (updating || !cells[r][c].isEditable()) return;
+
+        String text = cells[r][c].getText();
+
+        if (text.isEmpty()) {
+            board[r][c] = 0;
+            return;
+        }
+
+        if (!text.matches("[1-9]")) {
+            cells[r][c].setBackground(Color.PINK);
+            return;
+        }
+
+        int num = Integer.parseInt(text);
+        board[r][c] = 0;
+
+        if (!isSafe(board, r, c, num)) {
+            cells[r][c].setBackground(Color.PINK);
+        } else {
+            cells[r][c].setBackground(Color.WHITE);
+            board[r][c] = num;
+            checkCompletion();
+        }
+    }
+
+    private void checkCompletion() {
+        for (int[] row : board)
+            for (int val : row)
+                if (val == 0) return;
+
+        JOptionPane.showMessageDialog(this,
+                "Congratulations! You solved the Sudoku.");
+    }
+
+    private boolean isSafe(int[][] g, int r, int c, int n) {
+        for (int i = 0; i < 9; i++)
+            if (g[r][i] == n || g[i][c] == n) return false;
+
+        int sr = r - r % 3;
+        int sc = c - c % 3;
+
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                if (g[sr+i][sc+j] == n) return false;
+
+        return true;
+    }
+
+    private void solveSudoku() {
+        solve(board);
+        for (int i = 0; i < 9; i++)
+            for (int j = 0; j < 9; j++) {
+                cells[i][j].setText(String.valueOf(board[i][j]));
+                cells[i][j].setEditable(false);
+            }
+    }
+
+    private boolean solve(int[][] g) {
+        for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++)
+                if (g[r][c] == 0)
+                    for (int n = 1; n <= 9; n++)
+                        if (isSafe(g, r, c, n)) {
+                            g[r][c] = n;
+                            if (solve(g)) return true;
+                            g[r][c] = 0;
+                        }
+        return true;
+    }
+
+    public static void main(String[] args) {
+        new SudokuGame();
+    }
+}
